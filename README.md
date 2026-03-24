@@ -1,2 +1,3 @@
 # yt-dlp-custom
-based on yt-dlp  project .I made some little change for better using.
+Based on yt-dlp  project .I made some little change for better using.
+Original webstite :https://github.com/yt-dlp/yt-dlp
