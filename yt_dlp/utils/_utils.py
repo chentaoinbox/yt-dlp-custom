@@ -4729,8 +4729,9 @@ def get_local_path():
         filedirpath = os.path.dirname(sys.executable)
     else:
         filedirpath = os.path.dirname(os.path.abspath(__file__))
-    filedirpath = os.path.dirname(filedirpath)
-    return os.path.dirname(filedirpath)
+        filedirpath = os.path.dirname(filedirpath)
+        filedirpath = os.path.dirname(filedirpath)
+    return filedirpath
 
 def get_user_config_dirs(package_name):
     # .config (e.g. ~/.config/package_name)

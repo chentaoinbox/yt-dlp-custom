@@ -87,7 +87,7 @@
 #   Can be used multiple times
 #   Type: string
 #   Default: ['deno']
---js-runtimes node:e:/desktop/ytdl/node/
+--js-runtimes node:"node/"
 
 # --remote-components COMPONENT
 #   Remote components to allow yt-dlp to fetch when required
@@ -378,6 +378,7 @@
 #   Format: format specifier (e.g., "best", "bestvideo+bestaudio", "22", "best[height<=1080]")
 #   See "FORMAT SELECTION" in documentation
 #   Type: string
+--format best[height<=1080]+bestaudio
 
 # --format-sort | -S SORTORDER
 #   Sort the formats by the fields given
@@ -424,7 +425,7 @@
 #   Supported: mp4, mkv, webm, flv, avi, mov, ogg, etc.
 #   Example: --merge-output-format mp4/mkv
 #   Type: string
-
+--merge-output-format mp4
 
 # ============================================================================
 # SUBTITLE OPTIONS
@@ -589,6 +590,7 @@
 #   Placeholder for unavailable fields in --output
 #   Default: "NA"
 #   Type: string
+--output-na-placeholder ""
 
 # --restrict-filenames
 #   Restrict filenames to only ASCII characters, and avoid "&" and spaces in filenames
@@ -655,7 +657,7 @@
 # --cookies FILE
 #   Netscape formatted file to read cookies from and dump cookie jar in
 #   Type: path
---cookies "e:/desktop/ytdl/cookies/cookies.txt"
+--cookies "E:\desktop\ytdl\cookies\cookies.txt"
 
 # --cookies-from-browser BROWSER[+KEYRING][:PROFILE][::CONTAINER]
 #   The name of the browser to load cookies from
@@ -944,7 +946,7 @@
 # --ffmpeg-location PATH
 #   Location of the ffmpeg binary; either the path to the binary or its containing directory
 #   Type: path
---ffmpeg-location "e:/desktop/ytdl/ffmpeg/bin/"
+--ffmpeg-location ffmpeg/bin/
 
 # --exec [WHEN:]CMD
 #   Execute a command

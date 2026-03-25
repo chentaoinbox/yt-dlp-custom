@@ -16,12 +16,13 @@ import platform
 from tqdm import tqdm
 import requests
 import shutil
+from pathlib import Path
 
 
 class ConfigGenerator:
     def __init__(self):
         self.basedir = self.get_base_path()
-        print(self.basedir)
+        # print(self.basedir)
         self.main()
         pass
 
@@ -634,7 +635,7 @@ class ConfigGenerator:
 #   Placeholder for unavailable fields in --output
 #   Default: "NA"
 #   Type: string
---output-na-placeholder
+--output-na-placeholder ""
 
 # --restrict-filenames
 #   Restrict filenames to only ASCII characters, and avoid "&" and spaces in filenames
@@ -701,7 +702,7 @@ class ConfigGenerator:
 # --cookies FILE
 #   Netscape formatted file to read cookies from and dump cookie jar in
 #   Type: path
---cookies "cookies/cookies.txt"
+--cookies cookies/cookies.txt
 
 # --cookies-from-browser BROWSER[+KEYRING][:PROFILE][::CONTAINER]
 #   The name of the browser to load cookies from
@@ -1122,164 +1123,313 @@ class ConfigGenerator:
             return False
 
     def setffmpeg(self):
+        """Install FFmpeg to basedir/ffmpeg directory"""
         system = platform.system().lower()
         arch = platform.machine().lower()
         
-        if system == "windows":
-            zip_path = "ffmpeg.zip"
-            url = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip"
-            
-            if not self.download_with_progress(url, zip_path, "Download FFmpeg"):
-                return None
-            
-            print("Extracting FFmpeg...")
-            with zipfile.ZipFile(zip_path, 'r') as zf:
-                zf.extractall()
-            
-            for d in os.listdir():
-                if os.path.isdir(d) and d.startswith("ffmpeg"):
-                    if os.path.exists("ffmpeg"):
-                        shutil.rmtree("ffmpeg")
-                    shutil.move(d, "ffmpeg")
-            
-            os.remove(zip_path)
-            print("FFmpeg installation completed! ")
-            return "ffmpeg/bin/"
+        # Use Path for absolute path handling
+        basedir = Path(self.basedir).resolve()
+        target_dir = basedir / "ffmpeg"
+        zip_path = basedir / "ffmpeg.zip"
         
-        elif system == "linux":
-            if arch in ["x86_64", "amd64"]:
-                url = "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz"
-            elif arch in ["aarch64", "arm64"]:
-                url = "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-arm64-static.tar.xz"
-            else:
-                url = "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-armhf-static.tar.xz"
+        try:
+            if system == "windows":
+                url = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip"
+                
+                if not self.download_with_progress(url, str(zip_path), "Download FFmpeg"):
+                    return None
+                
+                print("Extracting FFmpeg...")
+                
+                # Extract to temporary directory
+                extract_dir = basedir / "ffmpeg_temp"
+                if extract_dir.exists():
+                    shutil.rmtree(extract_dir)
+                extract_dir.mkdir(parents=True, exist_ok=True)
+                
+                with zipfile.ZipFile(zip_path, 'r') as zf:
+                    zf.extractall(extract_dir)
+                
+                # Find the extracted folder
+                extracted_folder = None
+                for item in extract_dir.iterdir():
+                    if item.is_dir() and item.name.startswith("ffmpeg"):
+                        extracted_folder = item
+                        break
+                
+                if extracted_folder:
+                    # Remove old ffmpeg directory if exists
+                    if target_dir.exists():
+                        shutil.rmtree(target_dir)
+                    # Move extracted content to target directory
+                    shutil.move(str(extracted_folder), str(target_dir))
+                else:
+                    print("FFmpeg directory not found")
+                    return None
+                
+                # Cleanup
+                zip_path.unlink()
+                shutil.rmtree(extract_dir)
+                
+                print(f"FFmpeg installation completed! -> {target_dir}")
+                return str(target_dir)
             
-            tar_path = "ffmpeg.tar.xz"
+            elif system == "linux":
+                # Determine download URL
+                if arch in ["x86_64", "amd64"]:
+                    url = "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz"
+                elif arch in ["aarch64", "arm64"]:
+                    url = "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-arm64-static.tar.xz"
+                else:
+                    url = "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-armhf-static.tar.xz"
+                
+                tar_path = basedir / "ffmpeg.tar.xz"
+                
+                if not self.download_with_progress(url, str(tar_path), "Download FFmpeg"):
+                    return None
+                
+                print("Extracting FFmpeg...")
+                
+                extract_dir = basedir / "ffmpeg_temp"
+                if extract_dir.exists():
+                    shutil.rmtree(extract_dir)
+                extract_dir.mkdir(parents=True, exist_ok=True)
+                
+                with tarfile.open(tar_path, 'r:xz') as tf:
+                    tf.extractall(extract_dir)
+                
+                # Find the extracted folder
+                extracted_folder = None
+                for item in extract_dir.iterdir():
+                    if item.is_dir() and item.name.startswith("ffmpeg"):
+                        extracted_folder = item
+                        break
+                
+                if extracted_folder:
+                    if target_dir.exists():
+                        shutil.rmtree(target_dir)
+                    shutil.move(str(extracted_folder), str(target_dir))
+                    
+                    # Set executable permissions
+                    ffmpeg_bin = target_dir / "ffmpeg"
+                    if ffmpeg_bin.exists():
+                        ffmpeg_bin.chmod(0o755)
+                else:
+                    print("FFmpeg directory not found")
+                    return None
+                
+                tar_path.unlink()
+                shutil.rmtree(extract_dir)
+                
+                print(f"FFmpeg installation completed! -> {target_dir}")
+                return str(target_dir)
             
-            if not self.download_with_progress(url, tar_path, "Download FFmpeg"):
-                return None
+            elif system == "darwin":  # macOS
+                arch = "arm64" if arch == "arm64" else "intel"
+                url = f"https://www.osxexperts.net/ffmpeg{arch}.zip"
+                
+                zip_path = basedir / "ffmpeg.zip"
+                
+                if not self.download_with_progress(url, str(zip_path), "Download FFmpeg"):
+                    return None
+                
+                print("Extracting FFmpeg...")
+                
+                extract_dir = basedir / "ffmpeg_temp"
+                if extract_dir.exists():
+                    shutil.rmtree(extract_dir)
+                extract_dir.mkdir(parents=True, exist_ok=True)
+                
+                with zipfile.ZipFile(zip_path, 'r') as zf:
+                    zf.extractall(extract_dir)
+                
+                # Find the extracted folder
+                extracted_folder = None
+                for item in extract_dir.iterdir():
+                    if item.is_dir() and item.name.startswith("ffmpeg"):
+                        extracted_folder = item
+                        break
+                
+                if extracted_folder:
+                    if target_dir.exists():
+                        shutil.rmtree(target_dir)
+                    shutil.move(str(extracted_folder), str(target_dir))
+                    
+                    # Set executable permissions
+                    ffmpeg_bin = target_dir / "ffmpeg"
+                    if ffmpeg_bin.exists():
+                        ffmpeg_bin.chmod(0o755)
+                else:
+                    print("FFmpeg directory not found")
+                    return None
+                
+                zip_path.unlink()
+                shutil.rmtree(extract_dir)
+                
+                print(f"FFmpeg installation completed! -> {target_dir}")
+                return str(target_dir)
             
-            print("Extracting FFmpeg...")
-            with tarfile.open(tar_path, 'r:xz') as tf:
-                tf.extractall()
-            
-            for d in os.listdir():
-                if os.path.isdir(d) and d.startswith("ffmpeg"):
-                    if os.path.exists("ffmpeg"):
-                        shutil.rmtree("ffmpeg")
-                    shutil.move(d, "ffmpeg")
-            
-            os.remove(tar_path)
-            os.chmod("ffmpeg/ffmpeg", 0o755)
-            print("FFmpeg installation completed! ")
-            return "ffmpeg/ffmpeg"
+            return None
         
-        elif system == "darwin":  # macOS
-            arch = "arm64" if arch == "arm64" else "intel"
-            url = f"https://www.osxexperts.net/ffmpeg{arch}.zip"
-            
-            zip_path = "ffmpeg.zip"
-            
-            if not self.download_with_progress(url, zip_path, "Download FFmpeg"):
-                return None
-            
-            print("Extracting FFmpeg...")
-            with zipfile.ZipFile(zip_path, 'r') as zf:
-                zf.extractall()
-            
-            for d in os.listdir():
-                if os.path.isdir(d) and d.startswith("ffmpeg"):
-                    if os.path.exists("ffmpeg"):
-                        shutil.rmtree("ffmpeg")
-                    shutil.move(d, "ffmpeg")
-            
-            os.remove(zip_path)
-            os.chmod("ffmpeg/ffmpeg", 0o755)
-            print("FFmpeg installation completed! ")
-            return "ffmpeg/ffmpeg"
-        
-        return None
+        except Exception as e:
+            print(f"FFmpeg installation failed: {e}")
+            return None
 
     def setnodejs(self):
+        """Install Node.js to basedir/node directory"""
         system = platform.system().lower()
         arch = platform.machine().lower()
         version = "22.14.0"
         
-        if system == "windows":
-            zip_path = "node.zip"
-            url = f"https://nodejs.org/dist/v{version}/node-v{version}-win-x64.zip"
-            
-            if not self.download_with_progress(url, zip_path, f"Download Node.js {version}"):
-                return None
-            
-            print("Extracting Node.js...")
-            with zipfile.ZipFile(zip_path, 'r') as zf:
-                zf.extractall()
-            
-            for d in os.listdir():
-                if os.path.isdir(d) and d.startswith("node-v"):
-                    if os.path.exists("node"):
-                        shutil.rmtree("node")
-                    shutil.move(d, "node")
-            
-            os.remove(zip_path)
-            print("Node.js installation completed! ")
-            return "node/"
+        # Use Path for absolute path handling
+        basedir = Path(self.basedir).resolve()
+        target_dir = basedir / "node"
         
-        elif system == "linux":
-            if arch in ["x86_64", "amd64"]:
-                filename = f"node-v{version}-linux-x64.tar.xz"
-            elif arch in ["aarch64", "arm64"]:
-                filename = f"node-v{version}-linux-arm64.tar.xz"
-            else:
-                filename = f"node-v{version}-linux-armv7l.tar.xz"
+        try:
+            if system == "windows":
+                zip_path = basedir / "node.zip"
+                url = f"https://nodejs.org/dist/v{version}/node-v{version}-win-x64.zip"
+                
+                if not self.download_with_progress(url, str(zip_path), f"Download Node.js {version}"):
+                    return None
+                
+                print("Extracting Node.js...")
+                
+                extract_dir = basedir / "node_temp"
+                if extract_dir.exists():
+                    shutil.rmtree(extract_dir)
+                extract_dir.mkdir(parents=True, exist_ok=True)
+                
+                with zipfile.ZipFile(zip_path, 'r') as zf:
+                    zf.extractall(extract_dir)
+                
+                # Find the extracted folder
+                extracted_folder = None
+                for item in extract_dir.iterdir():
+                    if item.is_dir() and item.name.startswith("node-v"):
+                        extracted_folder = item
+                        break
+                
+                if extracted_folder:
+                    if target_dir.exists():
+                        shutil.rmtree(target_dir)
+                    shutil.move(str(extracted_folder), str(target_dir))
+                else:
+                    print("Node.js directory not found")
+                    return None
+                
+                # Cleanup
+                zip_path.unlink()
+                shutil.rmtree(extract_dir)
+                
+                node_exe = target_dir / "node.exe"
+                if node_exe.exists():
+                    print(f"Node.js installation completed! -> {target_dir}")
+                    return str(target_dir)
+                else:
+                    print("node.exe not found")
+                    return None
             
-            url = f"https://nodejs.org/dist/v{version}/{filename}"
-            tar_path = filename
+            elif system == "linux":
+                if arch in ["x86_64", "amd64"]:
+                    filename = f"node-v{version}-linux-x64.tar.xz"
+                elif arch in ["aarch64", "arm64"]:
+                    filename = f"node-v{version}-linux-arm64.tar.xz"
+                else:
+                    filename = f"node-v{version}-linux-armv7l.tar.xz"
+                
+                url = f"https://nodejs.org/dist/v{version}/{filename}"
+                tar_path = basedir / filename
+                
+                if not self.download_with_progress(url, str(tar_path), f"Download Node.js {version}"):
+                    return None
+                
+                print("Extracting Node.js...")
+                
+                extract_dir = basedir / "node_temp"
+                if extract_dir.exists():
+                    shutil.rmtree(extract_dir)
+                extract_dir.mkdir(parents=True, exist_ok=True)
+                
+                with tarfile.open(tar_path, 'r:xz') as tf:
+                    tf.extractall(extract_dir)
+                
+                # Find the extracted folder
+                extracted_folder = None
+                for item in extract_dir.iterdir():
+                    if item.is_dir() and item.name.startswith("node-v"):
+                        extracted_folder = item
+                        break
+                
+                if extracted_folder:
+                    if target_dir.exists():
+                        shutil.rmtree(target_dir)
+                    shutil.move(str(extracted_folder), str(target_dir))
+                    
+                    # Set executable permissions
+                    node_bin = target_dir / "bin" / "node"
+                    if node_bin.exists():
+                        node_bin.chmod(0o755)
+                else:
+                    print("Node.js directory not found")
+                    return None
+                
+                tar_path.unlink()
+                shutil.rmtree(extract_dir)
+                
+                print(f"Node.js installation completed! -> {target_dir}")
+                return str(target_dir)
             
-            if not self.download_with_progress(url, tar_path, f"Download Node.js {version}"):
-                return None
+            elif system == "darwin":  # macOS
+                arch = "arm64" if arch == "arm64" else "x64"
+                filename = f"node-v{version}-darwin-{arch}.tar.gz"
+                url = f"https://nodejs.org/dist/v{version}/{filename}"
+                tar_path = basedir / filename
+                
+                if not self.download_with_progress(url, str(tar_path), f"Download Node.js {version}"):
+                    return None
+                
+                print("Extracting Node.js...")
+                
+                extract_dir = basedir / "node_temp"
+                if extract_dir.exists():
+                    shutil.rmtree(extract_dir)
+                extract_dir.mkdir(parents=True, exist_ok=True)
+                
+                with tarfile.open(tar_path, 'r:gz') as tf:
+                    tf.extractall(extract_dir)
+                
+                # Find the extracted folder
+                extracted_folder = None
+                for item in extract_dir.iterdir():
+                    if item.is_dir() and item.name.startswith("node-v"):
+                        extracted_folder = item
+                        break
+                
+                if extracted_folder:
+                    if target_dir.exists():
+                        shutil.rmtree(target_dir)
+                    shutil.move(str(extracted_folder), str(target_dir))
+                    
+                    # Set executable permissions
+                    node_bin = target_dir / "bin" / "node"
+                    if node_bin.exists():
+                        node_bin.chmod(0o755)
+                else:
+                    print("Node.js directory not found")
+                    return None
+                
+                tar_path.unlink()
+                shutil.rmtree(extract_dir)
+                
+                print(f"Node.js installation completed! -> {target_dir}")
+                return str(target_dir)
             
-            print("Extracting Node.js...")
-            with tarfile.open(tar_path, 'r:xz') as tf:
-                tf.extractall()
-            
-            for d in os.listdir():
-                if os.path.isdir(d) and d.startswith("node-v"):
-                    if os.path.exists("node"):
-                        shutil.rmtree("node")
-                    shutil.move(d, "node")
-            
-            os.remove(tar_path)
-            os.chmod("node/bin/node", 0o755)
-            print("Node.js installation completed! ")
-            return "node/bin/node"
+            return None
         
-        elif system == "darwin":  # macOS
-            arch = "arm64" if arch == "arm64" else "x64"
-            filename = f"node-v{version}-darwin-{arch}.tar.gz"
-            url = f"https://nodejs.org/dist/v{version}/{filename}"
-            tar_path = filename
-            
-            if not self.download_with_progress(url, tar_path, f"Download Node.js {version}"):
-                return None
-            
-            print("Extracting Node.js...")
-            with tarfile.open(tar_path, 'r:gz') as tf:
-                tf.extractall()
-            
-            for d in os.listdir():
-                if os.path.isdir(d) and d.startswith("node-v"):
-                    if os.path.exists("node"):
-                        shutil.rmtree("node")
-                    shutil.move(d, "node")
-            
-            os.remove(tar_path)
-            os.chmod("node/bin/node", 0o755)
-            print("Node.js installation completed! ")
-            return "node/bin/node"
-        
-        return None
+        except Exception as e:
+            print(f"Node.js installation failed: {e}")
+            return None
     
     def configupdate(self, lines, target, message, way):
         target_index = None
@@ -1340,7 +1490,8 @@ class ConfigGenerator:
             filedirpath = os.path.dirname(sys.executable)
         else:
             filedirpath = os.path.dirname(os.path.abspath(__file__))
-        return os.path.dirname(filedirpath)
+            filedirpath = os.path.dirname(filedirpath)
+        return filedirpath
     
     def get_cookies_path(self):
         return os.path.join(self.basedir, "cookies", "cookies.txt")
@@ -1378,13 +1529,12 @@ class ConfigGenerator:
 
         with open(config_path, "r", encoding="utf-8") as f:
             lines = f.readlines()
-        ffmpeginfo = f'--ffmpeg-location "{os.path.normcase(os.path.join(self.basedir, ffmpeg_path))}"' if ffmpeg_path else ""
-        nodejsinfo = f'--js-runtimes node:{os.path.normcase(os.path.join(self.basedir, nodejs_path))}' if nodejs_path else ""
-        cookiesinfo = f'--cookies "{os.path.normcase(self.get_cookies_path())}"'
-        print("cookiesinfo:", cookiesinfo )
-        lines = self.configupdate(lines, "# --exec [WHEN:]CMD", ffmpeginfo.replace("\\", "/"), "insert")
+        ffmpeginfo = f'--ffmpeg-location {ffmpeg_path}' if ffmpeg_path else ""
+        nodejsinfo = f'--js-runtimes node:"{ nodejs_path}"' if nodejs_path else ""
+        cookiesinfo = f'--cookies "{os.path.abspath(self.get_cookies_path())}"'
+        lines = self.configupdate(lines, "# --exec [WHEN:]CMD", ffmpeginfo, "insert")
         lines = self.configupdate(lines, "# --remote-components COMPONENT", nodejsinfo.replace("\\", "/"), "insert")
-        lines = self.configupdate(lines, '--cookies "cookies/cookies.txt"', cookiesinfo.replace("\\", "/"), "replace")
+        lines = self.configupdate(lines, '--cookies cookies/cookies.txt', cookiesinfo, "replace")
 
         # 写回文件
         with open(config_path, "w", encoding="utf-8") as f:

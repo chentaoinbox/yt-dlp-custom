@@ -58,9 +58,9 @@ def parseOpts(overrideArguments=None, ignore_config_files='if_override'):  # noq
         for config_dir in config_dirs:
             head, tail = os.path.split(config_dir)
             assert tail == PACKAGE_NAME or config_dir == os.path.join(compat_expanduser('~'), f'.{PACKAGE_NAME}')
-            yield read_config("config","config")
             yield read_config(head, f'{PACKAGE_NAME}.conf')
             yield read_config(head,"config", f'{PACKAGE_NAME}.conf')
+            yield read_config("config","config")
             yield read_config(head,"config","config")
             yield read_config(head, "config", 'config.txt')
             if tail.startswith('.'):  # ~/.PACKAGE_NAME
@@ -77,17 +77,18 @@ def parseOpts(overrideArguments=None, ignore_config_files='if_override'):  # noq
             args, current_path = next(
                 filter(None, _load_from_config_dirs(func(PACKAGE_NAME))), (None, None))
         else:
-            current_path = os.path.join(path, 'yt-dlp.conf')
-            args = Config.read_file(current_path, default=None)
             current_path = os.path.join(path,'config', 'config')
-            args = Config.read_file(current_path, default=None)
+            if os.path.exists(current_path):
+                args = Config.read_file(current_path, default=None)
+            else:
+                current_path = os.path.join(path, 'yt-dlp.conf')
+                args = Config.read_file(current_path, default=None)
         if args is not None:
             root.append_config(args, current_path, label=label)
         return True
 
     def load_configs():
         yield not ignore_config_files
-        yield add_config('Default', get_local_path())
         yield add_config('Portable', get_executable_path())
         yield add_config('Home', expand_path(root.parse_known_args()[0].paths.get('home', '')).strip())
         yield add_config('User', func=get_user_config_dirs)

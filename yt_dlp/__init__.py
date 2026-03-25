@@ -980,8 +980,8 @@ def _real_main(argv=None):
 
     with YoutubeDL(ydl_opts) as ydl:
         pre_process = opts.update_self or opts.rm_cachedir
+       
         actual_use = all_urls or opts.load_info_filename
-
         if opts.rm_cachedir:
             ydl.cache.remove()
 
