@@ -1529,11 +1529,11 @@ class ConfigGenerator:
 
         with open(config_path, "r", encoding="utf-8") as f:
             lines = f.readlines()
-        ffmpeginfo = f'--ffmpeg-location {ffmpeg_path}' if ffmpeg_path else ""
-        nodejsinfo = f'--js-runtimes node:"{ nodejs_path}"' if nodejs_path else ""
+        ffmpeginfo = f'--ffmpeg-location "{os.path.abspath(os.path.join(self.basedir, ffmpeg_path))}"' if ffmpeg_path else ""
+        nodejsinfo = f'--js-runtimes node:"{os.path.abspath(os.path.join(self.basedir, nodejs_path))}"' if nodejs_path else ""
         cookiesinfo = f'--cookies "{os.path.abspath(self.get_cookies_path())}"'
         lines = self.configupdate(lines, "# --exec [WHEN:]CMD", ffmpeginfo, "insert")
-        lines = self.configupdate(lines, "# --remote-components COMPONENT", nodejsinfo.replace("\\", "/"), "insert")
+        lines = self.configupdate(lines, "# --remote-components COMPONENT", nodejsinfo, "insert")
         lines = self.configupdate(lines, '--cookies cookies/cookies.txt', cookiesinfo, "replace")
 
         # 写回文件
