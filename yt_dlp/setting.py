@@ -188,6 +188,7 @@ class ConfigGenerator:
 #   Aliases: youtube-dl, youtube-dlc, 2021, 2022, 2023, 2024, 2025
 #   Type: string
 #   Default: set()
+--compat-opt manifest-filesize-approx
 
 # --alias ALIASES OPTIONS
 #   Create aliases for an option string
@@ -766,6 +767,7 @@ class ConfigGenerator:
 # --quiet | -q
 #   Activate quiet mode
 #   Type: flag (no value)
+-q
 
 # --no-warnings
 #   Ignore warnings

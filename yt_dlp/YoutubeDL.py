@@ -652,6 +652,18 @@ class YoutubeDL:
         self.cache = Cache(self)
         self.__header_cookies = []
 
+        #Custom start
+        import threading
+        self._tqdm_enabled = True
+        self._tqdm_bars = {}
+        self._tqdm_lock = threading.Lock()
+        try:
+            from tqdm import tqdm
+            self._tqdm = tqdm
+        except ImportError:
+            self._tqdm_enabled = False
+        # Custom end
+
         # compat for API: load plugins if they have not already
         if not all_plugins_loaded.value:
             load_all_plugins()
@@ -3248,6 +3260,44 @@ class YoutubeDL:
         if self.params.get('forcejson'):
             self.to_stdout(json.dumps(self.sanitize_info(info_dict)))
 
+    # originally it was in YoutubeDL.download, but it is more suitable here as it is used by both video and subtitles download
+    # def dl(self, name, info, subtitle=False, test=False):
+    #     if not info.get('url'):
+    #         self.raise_no_formats(info, True)
+
+    #     if test:
+    #         verbose = self.params.get('verbose')
+    #         quiet = self.params.get('quiet') or not verbose
+    #         params = {
+    #             'test': True,
+    #             'quiet': quiet,
+    #             'verbose': verbose,
+    #             'noprogress': quiet,
+    #             'nopart': True,
+    #             'skip_unavailable_fragments': False,
+    #             'keep_fragments': False,
+    #             'overwrites': True,
+    #             '_no_ytdl_file': True,
+    #         }
+    #     else:
+    #         params = self.params
+
+    #     fd = get_suitable_downloader(info, params, to_stdout=(name == '-'))(self, params)
+    #     if not test:
+    #         for ph in self._progress_hooks:
+    #             fd.add_progress_hook(ph)
+    #         urls = '", "'.join(
+    #             (f['url'].split(',')[0] + ',<data>' if f['url'].startswith('data:') else f['url'])
+    #             for f in info.get('requested_formats', []) or [info])
+    #         self.write_debug(f'Invoking {fd.FD_NAME} downloader on "{urls}"')
+
+    #     # Note: Ideally info should be a deep-copied so that hooks cannot modify it.
+    #     # But it may contain objects that are not deep-copyable
+    #     new_info = self._copy_infodict(info)
+    #     if new_info.get('http_headers') is None:
+    #         new_info['http_headers'] = self._calc_headers(new_info)
+    #     return fd.download(name, new_info, subtitle)
+
     def dl(self, name, info, subtitle=False, test=False):
         if not info.get('url'):
             self.raise_no_formats(info, True)
@@ -3270,6 +3320,72 @@ class YoutubeDL:
             params = self.params
 
         fd = get_suitable_downloader(info, params, to_stdout=(name == '-'))(self, params)
+        
+        if self._tqdm_enabled and not test and not subtitle:
+            video_id = info.get('id', 'unknown')
+            
+            def tqdm_hook(d):
+                if d['status'] == 'downloading':
+                    with self._tqdm_lock:
+                        if video_id not in self._tqdm_bars:
+                            # 获取总大小（固定值）
+                            total = info.get('filesize_prom')
+                            if total is None:
+                                total = d.get('total_bytes')
+                            if total is None or total == 0:
+                                total = None
+                            
+                            title = info.get('title', video_id)[:40]
+                            self._tqdm_bars[video_id] = self._tqdm(
+                                total=total,
+                                unit='B',
+                                unit_scale=True,
+                                unit_divisor=1024,
+                                desc=f'Download {title}',
+                                position=len(self._tqdm_bars),
+                                leave=False,
+                                mininterval=0.5
+                            )
+                        
+                        pbar = self._tqdm_bars[video_id]
+                        # 获取动态变化的已下载字节数
+                        downloaded = d.get('downloaded_bytes', 0)
+                        
+                        # 如果总大小还是 None，尝试再次获取
+                        if pbar.total is None or pbar.total == 0:
+                            total = info.get('filesize_approx')
+                            if total is None:
+                                total = d.get('total_bytes')
+                            if total and total > 0:
+                                pbar.total = total
+                                pbar.refresh()
+                        
+                        # 更新进度（只增加差额）
+                        if downloaded > pbar.n:
+                            pbar.update(downloaded - pbar.n)
+                        
+                        # # 更新速度和 ETA
+                        # speed = d.get('speed', 0)
+                        # eta = d.get('eta', 0)
+                        # if speed:
+                        #     pbar.set_postfix(
+                        #         speed=f'{speed/1024/1024:.1f} MB/s',
+                        #         eta=f'{eta:.0f}s' if eta and eta > 0 else '?'
+                        #     )
+                
+                elif d['status'] == 'finished':
+                    with self._tqdm_lock:
+                        if video_id in self._tqdm_bars:
+                            pbar = self._tqdm_bars[video_id]
+                            # 确保进度条完成
+                            if pbar.total and pbar.n < pbar.total:
+                                pbar.update(pbar.total - pbar.n)
+                            # pbar.set_postfix(speed='', eta='')
+                            pbar.close()
+                            del self._tqdm_bars[video_id]
+            
+            fd.add_progress_hook(tqdm_hook)
+        
         if not test:
             for ph in self._progress_hooks:
                 fd.add_progress_hook(ph)
@@ -3278,8 +3394,6 @@ class YoutubeDL:
                 for f in info.get('requested_formats', []) or [info])
             self.write_debug(f'Invoking {fd.FD_NAME} downloader on "{urls}"')
 
-        # Note: Ideally info should be a deep-copied so that hooks cannot modify it.
-        # But it may contain objects that are not deep-copyable
         new_info = self._copy_infodict(info)
         if new_info.get('http_headers') is None:
             new_info['http_headers'] = self._calc_headers(new_info)
