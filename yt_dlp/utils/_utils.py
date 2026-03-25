@@ -4724,6 +4724,13 @@ def get_executable_path():
     
     return os.path.dirname(os.path.abspath(_get_variant_and_executable_path()[1]))
 
+def get_local_path():
+    if getattr(sys, 'frozen', False):
+        filedirpath = os.path.dirname(sys.executable)
+    else:
+        filedirpath = os.path.dirname(os.path.abspath(__file__))
+    filedirpath = os.path.dirname(filedirpath)
+    return os.path.dirname(filedirpath)
 
 def get_user_config_dirs(package_name):
     # .config (e.g. ~/.config/package_name)

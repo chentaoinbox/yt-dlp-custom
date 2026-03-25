@@ -1,49 +1,4 @@
-#!/usr/bin/env python3
-"""
-setting.py - 生成 yt-dlp 配置文件
-
-使用方法：
-    python setting.py                # 在当前目录创建 yt-dlp-config 文件夹并生成 config
-    python setting.py /path/to/dir   # 在指定目录创建文件夹并生成 config
-"""
-
-import os
-import sys
-import os
-import zipfile
-import tarfile
-import platform
-from tqdm import tqdm
-import requests
-import shutil
-
-
-class ConfigGenerator:
-    def __init__(self):
-        self.basedir = self.get_base_path()
-        print(self.basedir)
-        self.main()
-        pass
-
-    def generate_config(self,output_dir="config"):
-        """
-        生成 yt-dlp 配置文件
-        
-        Args:
-            output_dir: 输出目录，默认为当前目录下的 "config" 文件夹
-        """
-        output_dir = os.path.join(self.basedir, output_dir)
-        
-        # 创建目录（如果不存在）
-        os.makedirs(output_dir, exist_ok=True)
-        
-        # 配置文件路径（无扩展名）
-        config_path = os.path.join(output_dir, "config")
-        
-        # =========================================================
-        # 配置文件内容
-        # =========================================================
-        config_content = '''# coding: utf-8
+# coding: utf-8
 
 # ============================================================================
 # yt-dlp Default Configuration (shlex format)
@@ -132,6 +87,7 @@ class ConfigGenerator:
 #   Can be used multiple times
 #   Type: string
 #   Default: ['deno']
+--js-runtimes node:e:/desktop/ytdl/node/
 
 # --remote-components COMPONENT
 #   Remote components to allow yt-dlp to fetch when required
@@ -307,8 +263,8 @@ class ConfigGenerator:
 # --match-filters FILTER
 #   Generic video filter
 #   Format: field operators: =, !=, ^=, $=, *=, ~=, >, <, >=, <=, >?, <?
-#   Use "&" to combine, "\" to escape
-#   Example: !is_live or "like_count>?100 & description~='(?i)\\bcats \\& dogs\\b'"
+#   Use "&" to combine, "" to escape
+#   Example: !is_live or "like_count>?100 & description~='(?i)\bcats \& dogs\b'"
 #   Use "--match-filters -" for interactive mode
 #   Can be used multiple times (OR logic)
 #   Type: string
@@ -422,7 +378,6 @@ class ConfigGenerator:
 #   Format: format specifier (e.g., "best", "bestvideo+bestaudio", "22", "best[height<=1080]")
 #   See "FORMAT SELECTION" in documentation
 #   Type: string
---format best[height<=1080]+bestaudio
 
 # --format-sort | -S SORTORDER
 #   Sort the formats by the fields given
@@ -469,7 +424,7 @@ class ConfigGenerator:
 #   Supported: mp4, mkv, webm, flv, avi, mov, ogg, etc.
 #   Example: --merge-output-format mp4/mkv
 #   Type: string
---merge-output-format mp4
+
 
 # ============================================================================
 # SUBTITLE OPTIONS
@@ -634,7 +589,6 @@ class ConfigGenerator:
 #   Placeholder for unavailable fields in --output
 #   Default: "NA"
 #   Type: string
---output-na-placeholder
 
 # --restrict-filenames
 #   Restrict filenames to only ASCII characters, and avoid "&" and spaces in filenames
@@ -701,7 +655,7 @@ class ConfigGenerator:
 # --cookies FILE
 #   Netscape formatted file to read cookies from and dump cookie jar in
 #   Type: path
---cookies "cookies/cookies.txt"
+--cookies "e:/desktop/ytdl/cookies/cookies.txt"
 
 # --cookies-from-browser BROWSER[+KEYRING][:PROFILE][::CONTAINER]
 #   The name of the browser to load cookies from
@@ -990,6 +944,7 @@ class ConfigGenerator:
 # --ffmpeg-location PATH
 #   Location of the ffmpeg binary; either the path to the binary or its containing directory
 #   Type: path
+--ffmpeg-location "e:/desktop/ytdl/ffmpeg/bin/"
 
 # --exec [WHEN:]CMD
 #   Execute a command
@@ -1090,307 +1045,3 @@ class ConfigGenerator:
 # ============================================================================
 # End of configuration
 # ============================================================================
-'''
-        
-        # 写入文件
-        with open(config_path, 'w', encoding='utf-8') as f:
-            f.write(config_content)
-        return config_path
-
-    def download_with_progress(self,url, dest, desc=None):
-        try:
-            if desc is None:
-                desc = f"Download {os.path.basename(dest)}"
-            response = requests.get(url, stream=True)
-            response.raise_for_status()  # 检查请求是否成功
-            total_size = int(response.headers.get('content-length', 0))
-            with open(dest, 'wb') as file, tqdm(
-                desc=desc,
-                total=total_size,
-                unit='B',
-                unit_scale=True,
-                unit_divisor=1024,
-                miniters=1,
-                leave=False,
-            ) as pbar:
-                for data in response.iter_content(chunk_size=8192):
-                    size = file.write(data)
-                    pbar.update(size)
-            return True
-        except Exception as e:
-            print(f"Download failed: {e}")
-            return False
-
-    def setffmpeg(self):
-        system = platform.system().lower()
-        arch = platform.machine().lower()
-        
-        if system == "windows":
-            zip_path = "ffmpeg.zip"
-            url = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip"
-            
-            if not self.download_with_progress(url, zip_path, "Download FFmpeg"):
-                return None
-            
-            print("Extracting FFmpeg...")
-            with zipfile.ZipFile(zip_path, 'r') as zf:
-                zf.extractall()
-            
-            for d in os.listdir():
-                if os.path.isdir(d) and d.startswith("ffmpeg"):
-                    if os.path.exists("ffmpeg"):
-                        shutil.rmtree("ffmpeg")
-                    shutil.move(d, "ffmpeg")
-            
-            os.remove(zip_path)
-            print("FFmpeg installation completed! ")
-            return "ffmpeg/bin/"
-        
-        elif system == "linux":
-            if arch in ["x86_64", "amd64"]:
-                url = "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz"
-            elif arch in ["aarch64", "arm64"]:
-                url = "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-arm64-static.tar.xz"
-            else:
-                url = "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-armhf-static.tar.xz"
-            
-            tar_path = "ffmpeg.tar.xz"
-            
-            if not self.download_with_progress(url, tar_path, "Download FFmpeg"):
-                return None
-            
-            print("Extracting FFmpeg...")
-            with tarfile.open(tar_path, 'r:xz') as tf:
-                tf.extractall()
-            
-            for d in os.listdir():
-                if os.path.isdir(d) and d.startswith("ffmpeg"):
-                    if os.path.exists("ffmpeg"):
-                        shutil.rmtree("ffmpeg")
-                    shutil.move(d, "ffmpeg")
-            
-            os.remove(tar_path)
-            os.chmod("ffmpeg/ffmpeg", 0o755)
-            print("FFmpeg installation completed! ")
-            return "ffmpeg/ffmpeg"
-        
-        elif system == "darwin":  # macOS
-            arch = "arm64" if arch == "arm64" else "intel"
-            url = f"https://www.osxexperts.net/ffmpeg{arch}.zip"
-            
-            zip_path = "ffmpeg.zip"
-            
-            if not self.download_with_progress(url, zip_path, "Download FFmpeg"):
-                return None
-            
-            print("Extracting FFmpeg...")
-            with zipfile.ZipFile(zip_path, 'r') as zf:
-                zf.extractall()
-            
-            for d in os.listdir():
-                if os.path.isdir(d) and d.startswith("ffmpeg"):
-                    if os.path.exists("ffmpeg"):
-                        shutil.rmtree("ffmpeg")
-                    shutil.move(d, "ffmpeg")
-            
-            os.remove(zip_path)
-            os.chmod("ffmpeg/ffmpeg", 0o755)
-            print("FFmpeg installation completed! ")
-            return "ffmpeg/ffmpeg"
-        
-        return None
-
-    def setnodejs(self):
-        system = platform.system().lower()
-        arch = platform.machine().lower()
-        version = "22.14.0"
-        
-        if system == "windows":
-            zip_path = "node.zip"
-            url = f"https://nodejs.org/dist/v{version}/node-v{version}-win-x64.zip"
-            
-            if not self.download_with_progress(url, zip_path, f"Download Node.js {version}"):
-                return None
-            
-            print("Extracting Node.js...")
-            with zipfile.ZipFile(zip_path, 'r') as zf:
-                zf.extractall()
-            
-            for d in os.listdir():
-                if os.path.isdir(d) and d.startswith("node-v"):
-                    if os.path.exists("node"):
-                        shutil.rmtree("node")
-                    shutil.move(d, "node")
-            
-            os.remove(zip_path)
-            print("Node.js installation completed! ")
-            return "node/"
-        
-        elif system == "linux":
-            if arch in ["x86_64", "amd64"]:
-                filename = f"node-v{version}-linux-x64.tar.xz"
-            elif arch in ["aarch64", "arm64"]:
-                filename = f"node-v{version}-linux-arm64.tar.xz"
-            else:
-                filename = f"node-v{version}-linux-armv7l.tar.xz"
-            
-            url = f"https://nodejs.org/dist/v{version}/{filename}"
-            tar_path = filename
-            
-            if not self.download_with_progress(url, tar_path, f"Download Node.js {version}"):
-                return None
-            
-            print("Extracting Node.js...")
-            with tarfile.open(tar_path, 'r:xz') as tf:
-                tf.extractall()
-            
-            for d in os.listdir():
-                if os.path.isdir(d) and d.startswith("node-v"):
-                    if os.path.exists("node"):
-                        shutil.rmtree("node")
-                    shutil.move(d, "node")
-            
-            os.remove(tar_path)
-            os.chmod("node/bin/node", 0o755)
-            print("Node.js installation completed! ")
-            return "node/bin/node"
-        
-        elif system == "darwin":  # macOS
-            arch = "arm64" if arch == "arm64" else "x64"
-            filename = f"node-v{version}-darwin-{arch}.tar.gz"
-            url = f"https://nodejs.org/dist/v{version}/{filename}"
-            tar_path = filename
-            
-            if not self.download_with_progress(url, tar_path, f"Download Node.js {version}"):
-                return None
-            
-            print("Extracting Node.js...")
-            with tarfile.open(tar_path, 'r:gz') as tf:
-                tf.extractall()
-            
-            for d in os.listdir():
-                if os.path.isdir(d) and d.startswith("node-v"):
-                    if os.path.exists("node"):
-                        shutil.rmtree("node")
-                    shutil.move(d, "node")
-            
-            os.remove(tar_path)
-            os.chmod("node/bin/node", 0o755)
-            print("Node.js installation completed! ")
-            return "node/bin/node"
-        
-        return None
-    
-    def configupdate(self, lines, target, message, way):
-        target_index = None
-        
-        for i, line in enumerate(lines):
-            if message in line:
-                return lines
-        
-        for i, line in enumerate(lines):
-            if target in line:
-                target_index = i
-                break
-
-        if target_index is None:
-            return lines
-        
-        if way == "insert":
-            lines.insert(target_index - 1, f"{message}\n")
-            return lines
-        elif way == "replace":
-            lines[target_index] = f"{message}\n"
-            return lines
-        return lines
-
-
-
-    def check_ffmpeg(self):
-        folder = ""
-        folder = os.path.join(self.basedir, folder,"ffmpeg")
-        return os.path.exists(folder)
-
-
-    def check_nodejs(self):
-        folder = ""
-        folder = os.path.join(self.basedir, "node")
-        return os.path.exists(folder)
-
-    def checkconfig(self):
-        config_path = ""
-        config_path = os.path.join(self.basedir, "config", "config")
-        return os.path.exists(config_path)
-    
-    def checkcookies(self):
-        file = ""
-        file = os.path.join(self.basedir, "cookies", "cookies.txt")
-        return os.path.exists(file)
-    
-    def create_cookies(self):
-        folder = ""
-        folder = os.path.join(self.basedir, "cookies")
-        # print(folder)
-        if not os.path.exists(folder):
-            os.makedirs(folder)
-
-    def get_base_path(self):
-        filedirpath = ""
-        if getattr(sys, 'frozen', False):
-            filedirpath = os.path.dirname(sys.executable)
-        else:
-            filedirpath = os.path.dirname(os.path.abspath(__file__))
-        return os.path.dirname(filedirpath)
-    
-    def get_cookies_path(self):
-        return os.path.join(self.basedir, "cookies", "cookies.txt")
-
-    def main(self):
-        ffmpeg_path = None
-        nodejs_path = None
-        
-        if self.check_ffmpeg():
-            if platform.system().lower() == "windows":
-                ffmpeg_path = "ffmpeg/bin/"
-            else:
-                ffmpeg_path = "ffmpeg/ffmpeg"
-            pass
-        else:
-            ffmpeg_path = self.setffmpeg()
-        if self.check_nodejs():
-            if platform.system().lower() == "windows":
-                nodejs_path = "node/"
-            else:
-                nodejs_path = "node/bin/node"
-            pass
-        else:
-            nodejs_path = self.setnodejs()
-
-        if not self.checkconfig():
-            config_path = self.generate_config()
-        else:
-            config_path = os.path.join(self.basedir, "config", "config")
-
-        self.create_cookies()
-        self.checkcookies()
-        if not self.checkcookies():
-            print("please put cookies.txt file into cookies folder")
-
-        with open(config_path, "r", encoding="utf-8") as f:
-            lines = f.readlines()
-        ffmpeginfo = f'--ffmpeg-location "{os.path.normcase(os.path.join(self.basedir, ffmpeg_path))}"' if ffmpeg_path else ""
-        nodejsinfo = f'--js-runtimes node:{os.path.normcase(os.path.join(self.basedir, nodejs_path))}' if nodejs_path else ""
-        cookiesinfo = f'--cookies "{os.path.normcase(self.get_cookies_path())}"'
-        print("cookiesinfo:", cookiesinfo )
-        lines = self.configupdate(lines, "# --exec [WHEN:]CMD", ffmpeginfo.replace("\\", "/"), "insert")
-        lines = self.configupdate(lines, "# --remote-components COMPONENT", nodejsinfo.replace("\\", "/"), "insert")
-        lines = self.configupdate(lines, '--cookies "cookies/cookies.txt"', cookiesinfo.replace("\\", "/"), "replace")
-
-        # 写回文件
-        with open(config_path, "w", encoding="utf-8") as f:
-            f.writelines(lines)
-
-
-if __name__ == "__main__":
-    config_gen = ConfigGenerator()
-    # config_gen.main()

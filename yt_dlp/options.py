@@ -36,6 +36,7 @@ from .utils import (
     remove_end,
     variadic,
     write_string,
+    get_local_path,
 )
 from .version import CHANNEL, __version__
 
@@ -49,7 +50,6 @@ def parseOpts(overrideArguments=None, ignore_config_files='if_override'):  # noq
 
     def read_config(*paths):
         path = os.path.join(*paths)
-        # print(path)
         conf = Config.read_file(path, default=None)
         if conf is not None:
             return conf, path
@@ -79,12 +79,15 @@ def parseOpts(overrideArguments=None, ignore_config_files='if_override'):  # noq
         else:
             current_path = os.path.join(path, 'yt-dlp.conf')
             args = Config.read_file(current_path, default=None)
+            current_path = os.path.join(path,'config', 'config')
+            args = Config.read_file(current_path, default=None)
         if args is not None:
             root.append_config(args, current_path, label=label)
         return True
 
     def load_configs():
         yield not ignore_config_files
+        yield add_config('Default', get_local_path())
         yield add_config('Portable', get_executable_path())
         yield add_config('Home', expand_path(root.parse_known_args()[0].paths.get('home', '')).strip())
         yield add_config('User', func=get_user_config_dirs)

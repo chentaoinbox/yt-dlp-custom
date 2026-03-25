@@ -168,6 +168,7 @@ from .utils import (
     windows_enable_vt_mode,
     write_json_file,
     write_string,
+    get_local_path,
 )
 from .utils._utils import _UnsafeExtensionError, _YDLLogger, _ProgressState
 from .utils.networking import (
