@@ -3383,12 +3383,12 @@ class YoutubeDL:
                             # pbar.set_postfix(speed='', eta='')
                             pbar.close()
                             del self._tqdm_bars[video_id]
-            
+
             fd.add_progress_hook(tqdm_hook)
-        
+
         if not test:
             for ph in self._progress_hooks:
-                fd.add_progress_hook(ph)
+                fd.add_progress_hook(ph)   
             urls = '", "'.join(
                 (f['url'].split(',')[0] + ',<data>' if f['url'].startswith('data:') else f['url'])
                 for f in info.get('requested_formats', []) or [info])
