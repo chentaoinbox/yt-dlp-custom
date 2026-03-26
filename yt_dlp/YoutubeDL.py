@@ -3344,7 +3344,8 @@ class YoutubeDL:
                                 desc=f'Download {title}',
                                 position=len(self._tqdm_bars),
                                 leave=False,
-                                mininterval=0.5
+                                mininterval=0.5,
+                                ncols=100,
                             )
                         
                         pbar = self._tqdm_bars[video_id]
