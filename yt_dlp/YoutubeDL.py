@@ -3335,17 +3335,19 @@ class YoutubeDL:
                             if total is None or total == 0:
                                 total = None
                             
-                            title = info.get('title', video_id)[:40]
+                            title = info.get('title', video_id)[:15]
                             self._tqdm_bars[video_id] = self._tqdm(
                                 total=total,
                                 unit='B',
                                 unit_scale=True,
                                 unit_divisor=1024,
-                                desc=f'Download {title}',
+                                desc=f'{title}',
                                 position=len(self._tqdm_bars),
                                 leave=False,
                                 mininterval=0.5,
                                 ncols=100,
+                                dynamic_ncols=True,
+                                bar_format='{desc}|{bar}|{percentage:3.0f}% [{n_fmt}/{total_fmt},{rate_fmt},{elapsed}<{remaining}]',
                             )
                         
                         pbar = self._tqdm_bars[video_id]
